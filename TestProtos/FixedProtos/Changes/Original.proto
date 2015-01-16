@@ -1,0 +1,18 @@
+message Person {
+  required sfixed32 improvise=1;
+  required fixed64 improvised=2;
+  required sfixed64 improvises=3;
+
+  required fixed32 improvising=4;
+  required fixed64 imprudence=5;
+  required sfixed64 imprudent=6;
+  
+  required fixed32 imprudently=7;
+  required sfixed32 imps=8;
+  required sfixed64 impudence=9;
+  
+  required fixed32 impudent=10;
+  required sfixed32 impudently=11;
+  required fixed64 impugn=12;
+}
+

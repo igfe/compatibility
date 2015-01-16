@@ -1,0 +1,10 @@
+message Person {
+  message Phone {
+  required Number no = 1;
+    message Number {
+      required string num = 1;
+      required string name = 2;
+    }
+  }
+}
+

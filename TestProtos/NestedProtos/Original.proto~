@@ -1,0 +1,8 @@
+message Person {
+  message Phone {
+    message Number {
+      required int32 num = 1;
+    }
+  }
+}
+

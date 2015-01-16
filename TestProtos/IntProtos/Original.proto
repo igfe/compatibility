@@ -1,0 +1,27 @@
+message Person {
+  required int32 aardvark=1;
+  required int32 aardwolf=2;
+  required int32 aaron=3;
+  required int32 aback=4;
+
+  required int64 abacus=5;
+  required int64 abaft=6;
+  required int64 abalone=7;
+  required int64 abandon=8;
+
+  required uint32 abandoned=9;
+  required uint32 abandonment=10;
+  required uint32 abandons=11;
+  required uint32 abase=12;
+
+  required uint64 abased=13;
+  required uint64 abasement=14;
+  required uint64 abash=15;
+  required uint64 abashed=16;
+
+  required bool abate=17;
+  required bool abated=18;
+  required bool abatement=19;
+  required bool abates=20;
+}
+

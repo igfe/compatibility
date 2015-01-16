@@ -1,0 +1,11 @@
+message Person {
+  message Phone {
+  repeated Number no = 1;
+  required Number nr = 2;
+    message Number {
+      required string num = 1;
+      optional string name = 2;
+    }
+  }
+}
+

@@ -1,0 +1,5 @@
+message Person {
+  required string abdominal = 1;
+  required bytes abduct = 2;
+}
+

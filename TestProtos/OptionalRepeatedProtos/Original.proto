@@ -1,0 +1,5 @@
+message Person {
+  optional int32 hutches=1;
+  repeated int32 huts=2;
+}
+
