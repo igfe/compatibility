@@ -15,9 +15,9 @@
 package compatibility
 
 import (
-	"code.google.com/p/gogoprotobuf/parser"
-	descriptor "code.google.com/p/gogoprotobuf/protoc-gen-gogo/descriptor"
 	"fmt"
+	"github.com/gogo/protobuf/parser"
+	descriptor "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"os"
 	"strconv"
 	"strings"

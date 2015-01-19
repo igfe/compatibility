@@ -15,7 +15,7 @@
 package compatibility
 
 import (
-	"code.google.com/p/gogoprotobuf/parser"
+	"github.com/gogo/protobuf/parser"
 	"strconv"
 	"testing"
 )
