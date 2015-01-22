@@ -33,7 +33,8 @@ const (
 	ChangedType             Condition = 5
 	ChangedNumber           Condition = 6
 	ChangedDefault          Condition = 7
-	NonFieldIncompatibility Condition = 8
+	ConvertedExtension      Condition = 8
+	NonFieldIncompatibility Condition = 9
 )
 
 type Difference struct {
@@ -49,7 +50,7 @@ func (d *Difference) String() string {
 	if d.condition == ChangedLabel {
 		return "Changed label of field nr " + d.qualifier + " in " + d.path + " from " + d.oldValue + " to " + d.newValue
 	} else if d.condition == AddedField {
-		return "Added Field nr " + d.qualifier + " in " + d.path + " of label " + d.newValue
+		return "Added Field nr " + d.qualifier + " in " + d.path + " of label " + d.newValue + d.message
 	} else if d.condition == RemovedField {
 		return "Removed Field nr " + d.qualifier + " in " + d.path + " of label " + d.newValue + d.message
 	} else if d.condition == ChangedName {
@@ -151,7 +152,7 @@ func getChangesDP(newer, older []*descriptor.DescriptorProto, prefix string) Dif
 		for _, val2 := range older {
 			if *val1.Name == *val2.Name {
 				exist = true
-				output.merge(getChangesFieldDP(val1.Field, val2.Field, prefix+"/"+*val1.Name))
+				output.merge(getChangesFieldDP(val1.Field, val2.Field, val1.ExtensionRange, val2.ExtensionRange, prefix+"/"+*val1.Name))
 				output.merge(getChangesDP(val1.NestedType, val2.NestedType, prefix+"/"+*val1.Name))
 				output.merge(getChangesEDP(val1.EnumType, val2.EnumType, prefix+"/"+*val1.Name))
 			}
@@ -202,7 +203,7 @@ func getChangesEDP(newer, older []*descriptor.EnumDescriptorProto, prefix string
 	return output
 }
 
-func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, prefix string) DifferenceList {
+func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, newEx, oldEx []*descriptor.DescriptorProto_ExtensionRange, prefix string) DifferenceList {
 	var output DifferenceList
 	for _, val1 := range newer { //loop through both arrays to see which fields existed in the older version too and which were newly added
 		exist := false
@@ -255,8 +256,14 @@ func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, prefix s
 			}
 		}
 		if !exist {
+			fmt.Println(*val1.Number)
+			fmt.Println(oldEx)
 			if *val1.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
-				output.addError(AddedField, val1.Label.String(), "", prefix, strconv.Itoa(int(*val1.Number)), "")
+				if isExtension(int(*val1.Number), oldEx) {
+					output.addError(AddedField, val1.Label.String(), "", prefix, strconv.Itoa(int(*val1.Number)), " this number was previously used by extensions")
+				} else {
+					output.addError(AddedField, val1.Label.String(), "", prefix, strconv.Itoa(int(*val1.Number)), "")
+				}
 			}
 		}
 	}
@@ -269,7 +276,13 @@ func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, prefix s
 		}
 		if !exist {
 			if *val1.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
-				output.addError(RemovedField, val1.Label.String(), "", prefix, strconv.Itoa(int(*val1.Number)), "")
+				if isExtension(int(*val1.Number), newEx) {
+					output.addError(RemovedField, val1.Label.String(), "", prefix, strconv.Itoa(int(*val1.Number)), " this number is now assigned to extensions")
+				} else {
+					output.addError(RemovedField, val1.Label.String(), "", prefix, strconv.Itoa(int(*val1.Number)), "")
+				}
+			} else if isExtension(int(*val1.Number), newEx) {
+				output.addWarning(RemovedField, val1.Label.String(), "", prefix, strconv.Itoa(int(*val1.Number)), " this number is now usable by extensions")
 			} else {
 				output.addWarning(RemovedField, val1.Label.String(), "", prefix, strconv.Itoa(int(*val1.Number)), " consider prefixing \"OBSOLETE_\" instead")
 			}
@@ -314,11 +327,20 @@ func getChangesEVDP(newer, older []*descriptor.EnumValueDescriptorProto, prefix 
 	return output
 }
 
+func isExtension(tag int, ext []*descriptor.DescriptorProto_ExtensionRange) bool {
+	for _, val1 := range ext {
+		if tag >= int(*val1.Start) && tag <= int(*val1.End) {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	if len(os.Args) == 5 {
 		newer, err1 := parser.ParseFile(os.Args[1], strings.Split(os.Args[2], ":")...)
 		check(err1)
-		older, err2 := parser.ParseFile(os.Args[3], strings.Split(os.Args[2], ":")...)
+		older, err2 := parser.ParseFile(os.Args[3], strings.Split(os.Args[4], ":")...)
 		check(err2)
 		d := getChangesFileDP(newer.File, older.File)
 		fmt.Print(d.String(false))
@@ -328,15 +350,26 @@ func main() {
 	} else if len(os.Args) == 6 {
 		newer, err1 := parser.ParseFile(os.Args[1], strings.Split(os.Args[2], ":")...)
 		check(err1)
-		older, err2 := parser.ParseFile(os.Args[3], strings.Split(os.Args[2], ":")...)
+		older, err2 := parser.ParseFile(os.Args[3], strings.Split(os.Args[4], ":")...)
 		check(err2)
 		d := getChangesFileDP(newer.File, older.File)
 		fmt.Print(d.String(true))
 		if d.Error != nil {
 			os.Exit(1)
 		}
+	} else if len(os.Args) == 1 {
+		newer, err1 := parser.ParseFile("./ExtensionProtos/Changes/p.proto", "./ExtensionProtos/Changes")
+		check(err1)
+		older, err2 := parser.ParseFile("./ExtensionProtos/p.proto", "./ExtensionProtos/")
+		check(err2)
+		d := getChangesFileDP(newer.File, older.File)
+		fmt.Print(d.String(false))
+		if d.Error != nil {
+			os.Exit(1)
+		}
 	} else {
 		fmt.Println(len(os.Args))
+		fmt.Println("Use either 0 parameters for hard coded imports or 4,5 paramters to pass relative filepath")
 		fmt.Println("Use parameters {proto path 1} {proto 1 dependancies} {proto path 2} {proto 2 dependancies} if there is more than 1 dependency for a proto seperate them by \":\"")
 		os.Exit(1)
 	}
