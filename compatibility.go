@@ -23,6 +23,43 @@ import (
 	"strings"
 )
 
+func check(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+//Global variables are bad, mkay?
+var newDesc []*descriptor.FileDescriptorProto
+var oldDesc []*descriptor.FileDescriptorProto
+
+func GetDescriptor(path string, f []*descriptor.FileDescriptorProto) *descriptor.DescriptorProto {
+	pathA := strings.Split(path, ".")
+	for _, v1 := range f {
+		out := getDescriptor(pathA, v1.MessageType)
+		if out != nil {
+			return out
+		}
+	}
+	return nil
+}
+
+func getDescriptor(path []string, d []*descriptor.DescriptorProto) *descriptor.DescriptorProto {
+	for _, val := range d {
+		c := 0
+		for ; path[c] == ""; c++ {
+		}
+		if *val.Name == path[c] {
+			if len(path) == 1 {
+				return val
+			} else {
+				return getDescriptor(path[c+1:], val.NestedType)
+			}
+		}
+	}
+	return nil
+}
+
 type Condition int
 
 const (
@@ -68,8 +105,9 @@ func (d *Difference) String() string {
 }
 
 type DifferenceList struct {
-	Error   []Difference
-	Warning []Difference
+	Error     []Difference
+	Warning   []Difference
+	Extension []Difference
 }
 
 func (d *DifferenceList) addWarning(c Condition, newValue, oldValue, path, qualifier, message string) {
@@ -85,6 +123,10 @@ func (d *DifferenceList) addError(c Condition, newValue, oldValue, path, qualifi
 func (d1 *DifferenceList) merge(d2 DifferenceList) {
 	d1.Error = append(d1.Error, d2.Error...)
 	d1.Warning = append(d1.Warning, d2.Warning...)
+}
+
+func (d1 *DifferenceList) mergeExt(d2 DifferenceList) {
+	d1.Extension = append(d1.Extension, d2.Error...)
 }
 
 func (d *DifferenceList) String(suppressWarning bool) string {
@@ -111,13 +153,9 @@ func (d *DifferenceList) isCompatible() bool {
 	return false
 }
 
-func check(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 func getChangesFileDP(newer, older []*descriptor.FileDescriptorProto) DifferenceList {
+	newDesc = newer
+	oldDesc = older
 	var output DifferenceList
 	for _, val1 := range newer { //loop through both arrays to see which fields existed in the older version too and which were newly added
 		exist := false
@@ -210,49 +248,7 @@ func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, newEx, o
 		for _, val2 := range older {
 			if *val1.Number == *val2.Number { //if message exists in both, check label, numeric tag and type for dissimilarities
 				exist = true
-				if val1.Label.String() != val2.Label.String() { //If field label changed add it to differences
-					if *val1.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
-						output.addError(ChangedLabel, val1.Label.String(), val2.Label.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
-					} else if *val2.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
-						output.addError(ChangedLabel, val1.Label.String(), val2.Label.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
-					} else {
-						output.addWarning(ChangedLabel, val1.Label.String(), val2.Label.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
-					}
-				}
-				if *val1.Name != *val2.Name {
-					output.addWarning(ChangedName, *val1.Name, *val2.Name, prefix, strconv.Itoa(int(*val1.Number)), "")
-				}
-				if *val1.Type != *val2.Type {
-					compatible := false
-					if *val1.Type == descriptor.FieldDescriptorProto_TYPE_INT32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_INT64 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_UINT32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_UINT64 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_BOOL {
-						if *val2.Type == descriptor.FieldDescriptorProto_TYPE_INT32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_INT64 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_UINT32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_UINT64 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_BOOL {
-							compatible = true
-						}
-					}
-					if *val1.Type == descriptor.FieldDescriptorProto_TYPE_SINT32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_SINT64 {
-						if *val2.Type == descriptor.FieldDescriptorProto_TYPE_SINT32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_SINT64 {
-							compatible = true
-						}
-					}
-					if *val1.Type == descriptor.FieldDescriptorProto_TYPE_STRING || *val1.Type == descriptor.FieldDescriptorProto_TYPE_BYTES {
-						if *val2.Type == descriptor.FieldDescriptorProto_TYPE_STRING || *val2.Type == descriptor.FieldDescriptorProto_TYPE_BYTES {
-							compatible = true
-						}
-					}
-					if *val1.Type == descriptor.FieldDescriptorProto_TYPE_FIXED32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_FIXED64 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_SFIXED32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_SFIXED64 {
-						if *val2.Type == descriptor.FieldDescriptorProto_TYPE_FIXED32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_FIXED64 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_SFIXED32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_SFIXED64 {
-							compatible = true
-						}
-					}
-					if compatible {
-						output.addWarning(ChangedType, val1.Type.String(), val2.Type.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
-					} else {
-						output.addError(ChangedType, val1.Type.String(), val2.Type.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
-					}
-				}
-				if val1.DefaultValue != val2.DefaultValue {
-					output.addWarning(ChangedDefault, val1.GetDefaultValue(), val2.GetDefaultValue(), prefix, strconv.Itoa(int(*val1.Number)), "")
-				}
+				output.merge(compareFields(*val1, *val2, prefix))
 			}
 		}
 		if !exist {
@@ -296,6 +292,54 @@ func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, newEx, o
 				}
 			}
 		}
+	}
+	return output
+}
+
+func compareFields(val1, val2 descriptor.FieldDescriptorProto, prefix string) DifferenceList {
+	var output DifferenceList
+	if val1.Label.String() != val2.Label.String() { //If field label changed add it to differences
+		if *val1.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
+			output.addError(ChangedLabel, val1.Label.String(), val2.Label.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
+		} else if *val2.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
+			output.addError(ChangedLabel, val1.Label.String(), val2.Label.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
+		} else {
+			output.addWarning(ChangedLabel, val1.Label.String(), val2.Label.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
+		}
+	}
+	if *val1.Name != *val2.Name {
+		output.addWarning(ChangedName, *val1.Name, *val2.Name, prefix, strconv.Itoa(int(*val1.Number)), "")
+	}
+	if *val1.Type != *val2.Type {
+		compatible := false
+		if *val1.Type == descriptor.FieldDescriptorProto_TYPE_INT32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_INT64 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_UINT32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_UINT64 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_BOOL {
+			if *val2.Type == descriptor.FieldDescriptorProto_TYPE_INT32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_INT64 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_UINT32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_UINT64 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_BOOL {
+				compatible = true
+			}
+		}
+		if *val1.Type == descriptor.FieldDescriptorProto_TYPE_SINT32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_SINT64 {
+			if *val2.Type == descriptor.FieldDescriptorProto_TYPE_SINT32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_SINT64 {
+				compatible = true
+			}
+		}
+		if *val1.Type == descriptor.FieldDescriptorProto_TYPE_STRING || *val1.Type == descriptor.FieldDescriptorProto_TYPE_BYTES {
+			if *val2.Type == descriptor.FieldDescriptorProto_TYPE_STRING || *val2.Type == descriptor.FieldDescriptorProto_TYPE_BYTES {
+				compatible = true
+			}
+		}
+		if *val1.Type == descriptor.FieldDescriptorProto_TYPE_FIXED32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_FIXED64 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_SFIXED32 || *val1.Type == descriptor.FieldDescriptorProto_TYPE_SFIXED64 {
+			if *val2.Type == descriptor.FieldDescriptorProto_TYPE_FIXED32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_FIXED64 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_SFIXED32 || *val2.Type == descriptor.FieldDescriptorProto_TYPE_SFIXED64 {
+				compatible = true
+			}
+		}
+		if compatible {
+			output.addWarning(ChangedType, val1.Type.String(), val2.Type.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
+		} else {
+			output.addError(ChangedType, val1.Type.String(), val2.Type.String(), prefix, strconv.Itoa(int(*val1.Number)), "")
+		}
+	}
+	if val1.DefaultValue != val2.DefaultValue {
+		output.addWarning(ChangedDefault, val1.GetDefaultValue(), val2.GetDefaultValue(), prefix, strconv.Itoa(int(*val1.Number)), "")
 	}
 	return output
 }

@@ -1,7 +1,7 @@
 import "p.proto";
 
 message k{
-	extend m{
-		required int32 field5 = 5;
+	extend m.n{
+		required int32 field5 = 103;
 	}
 }
