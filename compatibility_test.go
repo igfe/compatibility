@@ -15,6 +15,7 @@
 package compatibility
 
 import (
+	"fmt"
 	"github.com/gogo/protobuf/parser"
 	"strconv"
 	"testing"
@@ -25,7 +26,8 @@ func TestByteString(t *testing.T) {
 	check(err1)
 	older, err2 := parser.ParseFile("./TestProtos/BytesStringProtos/Original.proto", "./TestProtos/BytesStringProtos")
 	check(err2)
-	d := getChangesFileDP(newer.File, older.File)
+	c := Comparer{newer, older}
+	d := c.Compare()
 	if !d.isCompatible() {
 		t.Error("Changes to BYTES or STRING broke the compatibility")
 	}
@@ -36,7 +38,8 @@ func TestFixed(t *testing.T) {
 	check(err1)
 	older, err2 := parser.ParseFile("./TestProtos/FixedProtos/Original.proto", "./TestProtos/FixedProtos")
 	check(err2)
-	d := getChangesFileDP(newer.File, older.File)
+	c := Comparer{newer, older}
+	d := c.Compare()
 	if !d.isCompatible() {
 		t.Error("Changes to fixed integer types broke the compatibility")
 	}
@@ -47,7 +50,8 @@ func TestIncompatibility(t *testing.T) {
 	check(err1)
 	older, err2 := parser.ParseFile("./TestProtos/Incompatibility/Changes/Original.proto", "./TestProtos/Incompatibility/Changes/")
 	check(err2)
-	d := getChangesFileDP(newer.File, older.File)
+	c := Comparer{newer, older}
+	d := c.Compare()
 	if len(d.Error) != 87 {
 		t.Error(strconv.Itoa(len(d.Error)) + " incompatibilities out of 87")
 	}
@@ -58,7 +62,8 @@ func TestOptionalRepeated(t *testing.T) {
 	check(err1)
 	older, err2 := parser.ParseFile("./TestProtos/OptionalRepeatedProtos/Original.proto", "./TestProtos/OptionalRepeatedProtos")
 	check(err2)
-	d := getChangesFileDP(newer.File, older.File)
+	c := Comparer{newer, older}
+	d := c.Compare()
 	if !d.isCompatible() {
 		t.Error("Switching between labels broke the compatibility")
 	}
@@ -69,7 +74,8 @@ func TestInt(t *testing.T) {
 	check(err1)
 	older, err2 := parser.ParseFile("./TestProtos/IntProtos/Original.proto", "./TestProtos/IntProtos")
 	check(err2)
-	d := getChangesFileDP(newer.File, older.File)
+	c := Comparer{newer, older}
+	d := c.Compare()
 	if !d.isCompatible() {
 		t.Error("Changes to integer types broke the compatibility")
 	}
@@ -80,7 +86,8 @@ func TestNestedAdded(t *testing.T) {
 	check(err1)
 	older, err2 := parser.ParseFile("./TestProtos/NestedProtos/NestedAdded/Original.proto", "./TestProtos/NestedProtos/NestedAdded")
 	check(err2)
-	d := getChangesFileDP(newer.File, older.File)
+	c := Comparer{newer, older}
+	d := c.Compare()
 	if len(d.Error) != 2 {
 		t.Error("Expected 2 errors, found " + strconv.Itoa(len(d.Error)))
 	}
@@ -96,7 +103,8 @@ func TestNestedLabel(t *testing.T) {
 	check(err1)
 	older, err2 := parser.ParseFile("./TestProtos/NestedProtos/NestedLabel/Original.proto", "./TestProtos/NestedProtos/NestedLabel")
 	check(err2)
-	d := getChangesFileDP(newer.File, older.File)
+	c := Comparer{newer, older}
+	d := c.Compare()
 	if len(d.Error) != 4 {
 		t.Error("Expected 4 errors, found " + strconv.Itoa(len(d.Error)))
 	}
@@ -112,7 +120,8 @@ func TestNestedRemoved(t *testing.T) {
 	check(err1)
 	older, err2 := parser.ParseFile("./TestProtos/NestedProtos/NestedRemoved/Original.proto", "./TestProtos/NestedProtos/NestedRemoved")
 	check(err2)
-	d := getChangesFileDP(newer.File, older.File)
+	c := Comparer{newer, older}
+	d := c.Compare()
 	if len(d.Error) != 2 {
 		t.Error("Expected 2 errors, found " + strconv.Itoa(len(d.Error)))
 	}
@@ -121,4 +130,14 @@ func TestNestedRemoved(t *testing.T) {
 			t.Error("Incompatible error condition: Not RemovedField")
 		}
 	}
+}
+
+func TestNestedRename(t *testing.T) {
+	newer, err1 := parser.ParseFile("./TestProtos/RenameMessage/Changes/Original.proto", "./TestProtos/RenameMessage/Changes")
+	check(err1)
+	older, err2 := parser.ParseFile("./TestProtos/RenameMessage/Original.proto", "./TestProtos/RenameMessage")
+	check(err2)
+	c := Comparer{newer, older}
+	d := c.Compare()
+	fmt.Println(d.String(false))
 }

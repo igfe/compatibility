@@ -1,0 +1,8 @@
+message m{
+	optional int32 field = 1;
+	extensions 2 to 20;	
+}
+
+extend m{
+	required int32 x = 2;
+}
