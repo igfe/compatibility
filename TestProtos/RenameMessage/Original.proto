@@ -1,6 +1,16 @@
 message m{
-	optional int32 field = 1;
-	extensions 3 to 20;	
-	required int32 y = 2;
+	extensions 1 to 10;
+		optional r name = 11;
 }
 
+extend m{
+	required int32 field =1;
+}
+
+message w{
+	optional q name = 11;
+}
+
+message q{
+	required string tag = 1;	
+}

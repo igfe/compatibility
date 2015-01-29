@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compatibility
+package main
 
 import (
 	"fmt"
@@ -37,7 +37,6 @@ func GetDescriptor(path string, f *descriptor.FileDescriptorSet) *descriptor.Des
 			return out
 		}
 	}
-	fmt.Println("FAILED to find descriptor " + path)
 	return nil
 }
 
@@ -46,7 +45,7 @@ func getDescriptor(path []string, d []*descriptor.DescriptorProto) *descriptor.D
 		c := 0
 		for ; path[c] == ""; c++ {
 		}
-		if *val.Name == path[c] {
+		if val.GetName() == path[c] {
 			if len(path)-c == 1 {
 				return val
 			} else {
@@ -81,22 +80,30 @@ type Difference struct {
 }
 
 func (d *Difference) String() string {
+	path := ""
+	if d.path == "" {
+		path = "."
+	} else {
+		path = d.path
+	}
 	if d.condition == ChangedLabel {
-		return "Changed label of field nr " + d.qualifier + " in " + d.path + " from " + d.oldValue + " to " + d.newValue
+		return "Changed label of field nr " + d.qualifier + " in " + path + " from " + d.oldValue + " to " + d.newValue
 	} else if d.condition == AddedField {
-		return "Added Field nr " + d.qualifier + " in " + d.path + " of label " + d.newValue + d.message
+		return "Added Field nr " + d.qualifier + " in " + path + " of label " + d.newValue + d.message
 	} else if d.condition == RemovedField {
-		return "Removed Field nr " + d.qualifier + " in " + d.path + " of label " + d.newValue + d.message
+		return "Removed Field nr " + d.qualifier + " in " + path + " of label " + d.newValue + d.message
 	} else if d.condition == ChangedName {
-		return "Changed name of field nr " + d.qualifier + " in " + d.path + " from " + d.oldValue + " to " + d.newValue
+		return "Changed name of field nr " + d.qualifier + " in " + path + " from " + d.oldValue + " to " + d.newValue
 	} else if d.condition == ChangedType {
-		return "Changed type of field nr " + d.qualifier + " in " + d.path + " from " + d.oldValue + " to " + d.newValue
+		return "Changed type of field nr " + d.qualifier + " in " + path + " from " + d.oldValue + " to " + d.newValue
 	} else if d.condition == ChangedNumber {
-		return "Changed numeric tag of field named \"" + d.qualifier + "\" in " + d.path + " from " + d.oldValue + " to " + d.newValue
+		return "Changed numeric tag of field named \"" + d.qualifier + "\" in " + path + " from " + d.oldValue + " to " + d.newValue
 	} else if d.condition == ChangedDefault {
-		return "Changed default value of field nr " + d.qualifier + " in " + d.path + " from " + d.oldValue + " to " + d.newValue + " this is generally OK"
+		return "Changed default value of field nr " + d.qualifier + " in " + path + " from " + d.oldValue + " to " + d.newValue + " this is generally OK"
 	} else if d.condition == NonFieldIncompatibility {
 		return d.message
+	} else if d.condition == ChangedTypeName {
+		return "Changed TypeName of field " + d.qualifier + " from " + d.oldValue + " to " + d.newValue + " in " + path + " manually compare message types using compare message method"
 	}
 	return ""
 }
@@ -155,7 +162,7 @@ type Comparer struct {
 	Older *descriptor.FileDescriptorSet
 }
 
-func (c *Comparer) AppendExtensions() {
+func (c *Comparer) appendExtensions() {
 	for _, val := range c.Newer.File {
 		for _, ext := range val.Extension {
 			d := GetDescriptor(*ext.Extendee, c.Newer)
@@ -189,7 +196,7 @@ func apndext(d *descriptor.DescriptorProto, c *descriptor.FileDescriptorSet) {
 }
 
 func (c *Comparer) Compare() DifferenceList {
-	c.AppendExtensions()
+	c.appendExtensions()
 	var output DifferenceList
 	for _, val1 := range c.Newer.File { //loop through both arrays to see which fields existed in the older version too and which were newly added
 		exist := false
@@ -200,7 +207,7 @@ func (c *Comparer) Compare() DifferenceList {
 			}
 		}
 		if !exist {
-			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Added proto file "+strings.Split(*val1.Name, ".")[0])
+			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Added proto file "+strings.Split(val1.GetName(), ".")[0])
 		}
 	}
 	for _, val1 := range c.Older.File {
@@ -211,7 +218,7 @@ func (c *Comparer) Compare() DifferenceList {
 			}
 		}
 		if !exist {
-			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Removed proto file "+strings.Split(*val1.Name, ".")[0]) //if it exists only in the old proto, it has been removed
+			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Removed proto file "+strings.Split(val1.GetName(), ".")[0]) //if it exists only in the old proto, it has been removed
 		}
 	}
 	return output
@@ -222,26 +229,26 @@ func getChangesDP(newer, older []*descriptor.DescriptorProto, path string, c Com
 	for _, val1 := range newer {
 		exist := false
 		for _, val2 := range older {
-			if *val1.Name == *val2.Name {
+			if val1.GetName() == val2.GetName() {
 				exist = true
-				output.merge(getChangesFieldDP(val1.Field, val2.Field, val1.ExtensionRange, val2.ExtensionRange, path+"."+*val1.Name))
-				output.merge(getChangesDP(val1.NestedType, val2.NestedType, path+"."+*val1.Name, c))
-				output.merge(getChangesEDP(val1.EnumType, val2.EnumType, path+"."+*val1.Name))
+				output.merge(getChangesFieldDP(val1.Field, val2.Field, val1.ExtensionRange, val2.ExtensionRange, path+"."+val1.GetName(), c))
+				output.merge(getChangesDP(val1.NestedType, val2.NestedType, path+"."+val1.GetName(), c))
+				output.merge(getChangesEDP(val1.EnumType, val2.EnumType, path+"."+val1.GetName()))
 			}
 		}
 		if !exist {
-			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Added message "+*val1.Name+" in "+path)
+			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Added message "+val1.GetName()+" in "+path)
 		}
 	}
 	for _, val1 := range older {
 		exist := false
 		for _, val2 := range newer {
-			if *val1.Name == *val2.Name {
+			if val1.GetName() == val2.GetName() {
 				exist = true
 			}
 		}
 		if !exist {
-			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Removed message "+*val1.Name+" in "+path)
+			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Removed message "+val1.GetName()+" in "+path)
 		}
 	}
 	return output
@@ -252,41 +259,41 @@ func getChangesEDP(newer, older []*descriptor.EnumDescriptorProto, path string) 
 	for _, val1 := range newer {
 		exist := false
 		for _, val2 := range older {
-			if *val1.Name == *val2.Name {
+			if val1.GetName() == val2.GetName() {
 				exist = true
-				output.merge(getChangesEVDP(val1.Value, val2.Value, path+"."+*val1.Name))
+				output.merge(getChangesEVDP(val1.Value, val2.Value, path+"."+val1.GetName()))
 			}
 		}
 		if !exist {
-			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Added enum "+*val1.Name+" in "+path)
+			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Added enum "+val1.GetName()+" in "+path)
 		}
 	}
 	for _, val1 := range older {
 		exist := false
 		for _, val2 := range newer {
-			if *val1.Name == *val2.Name {
+			if val1.GetName() == val2.GetName() {
 				exist = true
 			}
 		}
 		if !exist {
-			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Removed enum "+*val1.Name+" in "+path)
+			output.addWarning(NonFieldIncompatibility, "", "", "", "", "Removed enum "+val1.GetName()+" in "+path)
 		}
 	}
 	return output
 }
 
-func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, newEx, oldEx []*descriptor.DescriptorProto_ExtensionRange, path string) DifferenceList {
+func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, newEx, oldEx []*descriptor.DescriptorProto_ExtensionRange, path string, c Comparer) DifferenceList {
 	var output DifferenceList
 	for _, val1 := range newer { //loop through both arrays to see which fields existed in the older version too and which were newly added
 		exist := false
 		for _, val2 := range older {
-			if *val1.Number == *val2.Number { //if message exists in both, check label, numeric tag and type for dissimilarities
+			if val1.GetNumber() == val2.GetNumber() { //if message exists in both, check label, numeric tag and type for dissimilarities
 				exist = true
-				output.merge(compareFields(*val1, *val2, path))
+				output.merge(compareFields(*val1, *val2, path, c))
 			}
 		}
 		if !exist {
-			if *val1.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
+			if val1.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
 				output.addError(AddedField, val1.Label.String(), "", path, strconv.Itoa(int(*val1.Number)), "")
 			}
 		}
@@ -294,12 +301,12 @@ func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, newEx, o
 	for _, val1 := range older {
 		exist := false
 		for _, val2 := range newer {
-			if *val1.Number == *val2.Number {
+			if val1.GetNumber() == val2.GetNumber() {
 				exist = true
 			}
 		}
 		if !exist {
-			if *val1.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
+			if val1.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
 				output.addError(RemovedField, val1.Label.String(), "", path, strconv.Itoa(int(*val1.Number)), "")
 			} else {
 				output.addWarning(RemovedField, val1.Label.String(), "", path, strconv.Itoa(int(*val1.Number)), " consider pathing \"OBSOLETE_\" instead")
@@ -308,9 +315,9 @@ func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, newEx, o
 	}
 	for _, val1 := range newer {
 		for _, val2 := range older {
-			if *val1.Name == *val2.Name {
-				if *val1.Number != *val2.Number {
-					output.addWarning(ChangedNumber, strconv.Itoa(int(*val1.Number)), strconv.Itoa(int(*val2.Number)), path, *val1.Name, "")
+			if val1.GetName() == val2.GetName() {
+				if val1.GetNumber() != val2.GetNumber() {
+					output.addWarning(ChangedNumber, strconv.Itoa(int(*val1.Number)), strconv.Itoa(int(*val2.Number)), path, val1.GetName(), "")
 				}
 			}
 		}
@@ -318,19 +325,19 @@ func getChangesFieldDP(newer, older []*descriptor.FieldDescriptorProto, newEx, o
 	return output
 }
 
-func compareFields(val1, val2 descriptor.FieldDescriptorProto, path string) DifferenceList {
+func compareFields(val1, val2 descriptor.FieldDescriptorProto, path string, c Comparer) DifferenceList {
 	var output DifferenceList
 	if val1.Label.String() != val2.Label.String() { //If field label changed add it to differences
-		if *val1.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
+		if val1.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
 			output.addError(ChangedLabel, val1.Label.String(), val2.Label.String(), path, strconv.Itoa(int(*val1.Number)), "")
-		} else if *val2.Label == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
+		} else if val2.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REQUIRED {
 			output.addError(ChangedLabel, val1.Label.String(), val2.Label.String(), path, strconv.Itoa(int(*val1.Number)), "")
 		} else {
 			output.addWarning(ChangedLabel, val1.Label.String(), val2.Label.String(), path, strconv.Itoa(int(*val1.Number)), "")
 		}
 	}
-	if *val1.Name != *val2.Name {
-		output.addWarning(ChangedName, *val1.Name, *val2.Name, path, strconv.Itoa(int(*val1.Number)), "")
+	if val1.GetName() != val2.GetName() {
+		output.addWarning(ChangedName, val1.GetName(), val2.GetName(), path, strconv.Itoa(int(*val1.Number)), "")
 	}
 	if *val1.Type != *val2.Type {
 		compatible := false
@@ -363,6 +370,14 @@ func compareFields(val1, val2 descriptor.FieldDescriptorProto, path string) Diff
 	if val1.DefaultValue != val2.DefaultValue {
 		output.addWarning(ChangedDefault, val1.GetDefaultValue(), val2.GetDefaultValue(), path, strconv.Itoa(int(*val1.Number)), "")
 	}
+	if val1.GetTypeName() != val2.GetTypeName() {
+		output.addWarning(ChangedTypeName, *val1.TypeName, *val2.TypeName, path, strconv.Itoa(int(*val1.Number)), "")
+		d1 := GetDescriptor(val1.GetTypeName(), c.Newer)
+		d2 := GetDescriptor(val2.GetTypeName(), c.Older)
+		output.merge(getChangesFieldDP(d1.Field, d2.Field, d1.ExtensionRange, d2.ExtensionRange, path+"."+d1.GetName(), c))
+		output.merge(getChangesDP(d1.NestedType, d2.NestedType, path+"."+d1.GetName(), c))
+		output.merge(getChangesEDP(d1.EnumType, d2.EnumType, path+"."+d1.GetName()))
+	}
 	return output
 }
 
@@ -371,23 +386,23 @@ func getChangesEVDP(newer, older []*descriptor.EnumValueDescriptorProto, path st
 	for _, val1 := range newer {
 		exist := false
 		for _, val2 := range older {
-			if *val1.Name == *val2.Name {
+			if val1.GetName() == val2.GetName() {
 				exist = true
 			}
 		}
 		if !exist {
-			output.addError(AddedField, *val1.Name, "", path, strconv.Itoa(int(*val1.Number)), "")
+			output.addError(AddedField, val1.GetName(), "", path, strconv.Itoa(int(*val1.Number)), "")
 		}
 	}
 	for _, val1 := range older {
 		exist := false
 		for _, val2 := range newer {
-			if *val1.Name == *val2.Name {
+			if val1.GetName() == val2.GetName() {
 				exist = true
 			}
 		}
 		if !exist {
-			output.addError(RemovedField, *val1.Name, "", path, strconv.Itoa(int(*val1.Number)), "")
+			output.addError(RemovedField, val1.GetName(), "", path, strconv.Itoa(int(*val1.Number)), "")
 		}
 	}
 	return output
@@ -410,7 +425,7 @@ func main() {
 		check(err2)
 		c := Comparer{newer, older}
 		d := c.Compare()
-		fmt.Print(d)
+		fmt.Print(d.String(true))
 		if d.Error != nil {
 			os.Exit(1)
 		}
@@ -421,7 +436,7 @@ func main() {
 		check(err2)
 		c := Comparer{newer, older}
 		d := c.Compare()
-		fmt.Print(d.String(true))
+		fmt.Println(d.String(false))
 		if d.Error != nil {
 			os.Exit(1)
 		}

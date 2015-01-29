@@ -15,7 +15,6 @@
 package compatibility
 
 import (
-	"fmt"
 	"github.com/gogo/protobuf/parser"
 	"strconv"
 	"testing"
@@ -130,14 +129,4 @@ func TestNestedRemoved(t *testing.T) {
 			t.Error("Incompatible error condition: Not RemovedField")
 		}
 	}
-}
-
-func TestNestedRename(t *testing.T) {
-	newer, err1 := parser.ParseFile("./TestProtos/RenameMessage/Changes/Original.proto", "./TestProtos/RenameMessage/Changes")
-	check(err1)
-	older, err2 := parser.ParseFile("./TestProtos/RenameMessage/Original.proto", "./TestProtos/RenameMessage")
-	check(err2)
-	c := Comparer{newer, older}
-	d := c.Compare()
-	fmt.Println(d.String(false))
 }
