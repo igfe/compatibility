@@ -1,7 +1,0 @@
-import "p.proto";
-
-message k{
-	extend m.n{
-		required int32 field5 = 103;
-	}
-}

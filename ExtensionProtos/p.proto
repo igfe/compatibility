@@ -1,21 +1,17 @@
 message m{
+	extensions 2 to 10;
+	required n f1 = 1;
+}
 
-	message n{
-		extensions 100 to 200;
-		required int32 field129 =1;
-	}
-	
-	required int32 field1 =1;
+message n {
+	required int32 a = 1;
 	extensions 2;
-	extensions 5;
-	
-	extend n{
-		required int64 field2 = 100;
-		required string field4 = 101;
-	}
 }
 
-extend m{
-	required int64 field3 = 2;
+extend n {
+	required string b = 2;
 }
 
+extend m {
+	required sint32 apples = 2;
+}

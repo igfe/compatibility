@@ -27,7 +27,7 @@ func TestByteString(t *testing.T) {
 	check(err2)
 	c := Comparer{newer, older}
 	d := c.Compare()
-	if !d.isCompatible() {
+	if !d.IsCompatible() {
 		t.Error("Changes to BYTES or STRING broke the compatibility")
 	}
 }
@@ -39,7 +39,7 @@ func TestFixed(t *testing.T) {
 	check(err2)
 	c := Comparer{newer, older}
 	d := c.Compare()
-	if !d.isCompatible() {
+	if !d.IsCompatible() {
 		t.Error("Changes to fixed integer types broke the compatibility")
 	}
 }
@@ -63,7 +63,7 @@ func TestOptionalRepeated(t *testing.T) {
 	check(err2)
 	c := Comparer{newer, older}
 	d := c.Compare()
-	if !d.isCompatible() {
+	if !d.IsCompatible() {
 		t.Error("Switching between labels broke the compatibility")
 	}
 }
@@ -75,7 +75,7 @@ func TestInt(t *testing.T) {
 	check(err2)
 	c := Comparer{newer, older}
 	d := c.Compare()
-	if !d.isCompatible() {
+	if !d.IsCompatible() {
 		t.Error("Changes to integer types broke the compatibility")
 	}
 }
@@ -128,5 +128,17 @@ func TestNestedRemoved(t *testing.T) {
 		if val.condition != RemovedField {
 			t.Error("Incompatible error condition: Not RemovedField")
 		}
+	}
+}
+
+func TestExtensions(t *testing.T) {
+	newer, err1 := parser.ParseFile("./ExtensionProtos/p.proto", "./ExtensionProtos/")
+	check(err1)
+	older, err2 := parser.ParseFile("./ExtensionProtos/Changes/p.proto", "./ExtensionProtos/Changes/")
+	check(err2)
+	c := Comparer{newer, older}
+	d := c.Compare()
+	if !d.IsCompatible() {
+		t.Error("Extensions not handled properly")
 	}
 }

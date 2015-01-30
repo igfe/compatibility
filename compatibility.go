@@ -150,7 +150,7 @@ func (d *DifferenceList) String(suppressWarning bool) string {
 	return output
 }
 
-func (d *DifferenceList) isCompatible() bool {
+func (d *DifferenceList) IsCompatible() bool {
 	if d.Error == nil {
 		return true
 	}

@@ -1,11 +1,9 @@
 message m{
-	message n{
-		message q{
-			required int32 field1 = 100;
-			extensions 101 to 200;
-		}
-	}
-	extend n{
-		required int32 field2 = 101;
-	}
+	required n f1 = 1;
+	required sint32 apples = 2;
+}
+
+message n{
+	required int32 a = 1;
+	required string b = 2;
 }
