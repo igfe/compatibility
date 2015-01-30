@@ -1,0 +1,5 @@
+message m{
+	required int32 field1 = 1;
+	required sint32 field3 = 5;
+}
+

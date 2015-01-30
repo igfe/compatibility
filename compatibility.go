@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package compatibility
 
 import (
 	"fmt"
@@ -142,7 +142,7 @@ func (d *DifferenceList) String(suppressWarning bool) string {
 		}
 	}
 	if d.Error != nil {
-		output = output + "ERROR\n"
+		output = output + "INCOMPATIBILITIES\n"
 		for _, val := range d.Error {
 			output = output + val.String() + "\n"
 		}
@@ -425,7 +425,7 @@ func main() {
 		check(err2)
 		c := Comparer{newer, older}
 		d := c.Compare()
-		fmt.Print(d.String(true))
+		fmt.Print(d.String(false))
 		if d.Error != nil {
 			os.Exit(1)
 		}

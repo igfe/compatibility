@@ -1,0 +1,10 @@
+message m{
+ repeated int32 a = 1;
+ optional int64 b = 2;
+ repeated string c = 3;
+ required n d = 4;
+}
+
+message n{
+	required sint32 field1 = 1;
+}

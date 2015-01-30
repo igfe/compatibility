@@ -1,0 +1,6 @@
+message m{
+	optional int32 Alfa = 1;
+	repeated int32 Bravo = 2;
+	required int32 Charlie = 3;
+	required int32 Delta = 4;
+}

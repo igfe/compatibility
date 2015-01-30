@@ -1,0 +1,7 @@
+message m{
+	extensions 2 to 10;
+}
+
+extend m{
+	required int32 i = 3;
+}
