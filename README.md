@@ -1,4 +1,8 @@
-# compatibility
+## comments, suggestions
+it has been years since I last worked on this code, but it slowly gained traction. If you have any feature requests or suggestions, you can email them to igfe@protonmail.com
+
+
+## compatibility
 Check the backwards compatiblity of google protocol buffers
 
 According to the official language guide, protocol buffers can be updated and still remain compatible so long as certain rules are followed. This program tests two versions of a .proto file and displays an error if it is not compatible. 
